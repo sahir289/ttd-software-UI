@@ -1,6 +1,9 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import { useState } from "react"
+import { Suspense } from "react"
 import {
   Search,
   MoreHorizontal,
@@ -92,6 +95,14 @@ const mockCustomers = [
 ]
 
 export default function AdminCustomersPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CustomersContent />
+    </Suspense>
+  )
+}
+
+export function CustomersContent() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const filteredCustomers = mockCustomers.filter((customer) =>

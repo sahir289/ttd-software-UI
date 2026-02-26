@@ -74,7 +74,7 @@ export default function AdminOrdersPage() {
   const filteredOrders = mockOrders.filter((order) => {
     const matchesSearch = order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.shippingAddress.fullName.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter || order.status === "default"
     const matchesPayment = paymentFilter === "all" || order.paymentMethod === paymentFilter
     return matchesSearch && matchesStatus && matchesPayment
   })
@@ -85,6 +85,7 @@ export default function AdminOrdersPage() {
       description: `Order status changed to ${newStatus}`,
     })
   }
+  
 
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order)
@@ -213,7 +214,11 @@ export default function AdminOrdersPage() {
             <TableBody>
               {filteredOrders.length > 0 ? (
                 filteredOrders.map((order) => {
-                  const statusConfig = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG]
+                  const statusConfig = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG] || {
+                    label: "Unknown",
+                    icon: Clock,
+                    color: "bg-muted/20 text-muted-foreground",
+                  }
                   return (
                     <TableRow key={order.id}>
                       <TableCell>
@@ -232,14 +237,14 @@ export default function AdminOrdersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex -space-x-2">
-                          {order.items.slice(0, 3).map((item, index) => (
+                          {order?.items.slice(0, 3).map((item, index) => (
                             <div
                               key={index}
                               className="relative h-8 w-8 overflow-hidden rounded-full border-2 border-background bg-muted"
                             >
                               <Image
-                                src={item.image || "/placeholder.svg"}
-                                alt={item.name}
+                                src={"/placeholder.svg"}
+                                alt={"Placeholder"}
                                 fill
                                 className="object-cover"
                               />
@@ -376,14 +381,14 @@ export default function AdminOrdersPage() {
                       <div key={index} className="flex items-center gap-3">
                         <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-muted">
                           <Image
-                            src={item.image || "/placeholder.svg"}
-                            alt={item.name}
+                            src={ "/placeholder.svg"}
+                            alt={"Placeholder"}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium line-clamp-1">{item.name}</p>
+                          <p className="font-medium line-clamp-1">{formatPrice(item.price)}</p>
                           <p className="text-sm text-muted-foreground">
                             Qty: {item.quantity} x {formatPrice(item.price)}
                           </p>
@@ -410,11 +415,11 @@ export default function AdminOrdersPage() {
                   )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Shipping</span>
-                    <span>{selectedOrder.shippingCharge === 0 ? "FREE" : formatPrice(selectedOrder.shippingCharge)}</span>
+                    <span>{selectedOrder.discount === 0 ? "FREE" : formatPrice(selectedOrder.discount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Tax (GST)</span>
-                    <span>{formatPrice(selectedOrder.tax)}</span>
+                    <span>{formatPrice(selectedOrder.gst)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-semibold">

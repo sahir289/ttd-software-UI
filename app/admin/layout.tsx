@@ -5,7 +5,7 @@ import React, { Suspense } from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useSearchParams } from "next/navigation"
+// import { useSearchParams } from "next/navigation"
 import {
   LayoutDashboard,
   Package,
@@ -76,7 +76,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
+  // const searchParams = useSearchParams()
   const { theme, setTheme } = useTheme()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 

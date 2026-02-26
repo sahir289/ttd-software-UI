@@ -514,6 +514,7 @@ export const mockUsers: User[] = [
         pincode: '201301',
         isDefault: true,
         type: 'home',
+        fullName: ''
       },
       {
         id: 'addr-2',
@@ -526,6 +527,7 @@ export const mockUsers: User[] = [
         pincode: '560066',
         isDefault: false,
         type: 'work',
+        fullName: ''
       },
     ],
     role: 'user',
@@ -558,6 +560,7 @@ export const mockOrders: Order[] = [
     estimatedDelivery: '2024-01-28',
     createdAt: '2024-01-20T10:00:00Z',
     updatedAt: '2024-01-28T15:00:00Z',
+    status: ''
   },
   {
     id: 'order-2',
@@ -581,6 +584,7 @@ export const mockOrders: Order[] = [
     estimatedDelivery: '2024-02-05',
     createdAt: '2024-02-01T10:00:00Z',
     updatedAt: '2024-02-03T10:00:00Z',
+    status: ''
   },
 ]
 
