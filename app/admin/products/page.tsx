@@ -53,7 +53,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { formatPrice } from "@/lib/utils"
-import { mockProducts } from "@/lib/mock-data"
+import { products } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
 
 export default function AdminProductsPage() {
@@ -65,9 +65,9 @@ export default function AdminProductsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null)
 
-  const filteredProducts = mockProducts.filter((product) => {
+  const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
+      product.id?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = categoryFilter === "all" || product.category === categoryFilter
     const matchesStock = stockFilter === "all" ||
       (stockFilter === "low" && product.stock < 20) ||
@@ -76,7 +76,7 @@ export default function AdminProductsPage() {
     return matchesSearch && matchesCategory && matchesStock
   })
 
-  const categories = [...new Set(mockProducts.map((p) => p.category))]
+  const categories = [...new Set(products.map((p) => p.category))]
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -118,7 +118,7 @@ export default function AdminProductsPage() {
         <div>
           <h1 className="text-2xl font-bold">Products</h1>
           <p className="text-muted-foreground">
-            Manage your product inventory ({mockProducts.length} products)
+            Manage your product inventory ({products.length} products)
           </p>
         </div>
         <div className="flex gap-2">
@@ -246,7 +246,7 @@ export default function AdminProductsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {product.sku || "N/A"}
+                      {product.id || "N/A"}
                     </TableCell>
                     <TableCell>{product.category}</TableCell>
                     <TableCell className="text-right">
