@@ -6,22 +6,20 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Format price in Indian Rupees
-export function formatPrice(price: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(price)
+export function formatPrice(amount: number = 0) {
+  if (isNaN(amount)) return "₹0"
+
+  return `₹${amount.toLocaleString("en-IN")}`
 }
 
 // Format date
-export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(date))
+export function formatDate(date: string) {
+  if (!date) return "-"
+
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return "-"
+
+  return d.toLocaleDateString("en-IN")
 }
 
 // Format relative time
@@ -34,7 +32,7 @@ export function formatRelativeTime(date: string | Date): string {
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`
-  return formatDate(date)
+  return formatDate(date.toString())
 }
 
 // Calculate GST breakdown (18% GST in India for most goods)
