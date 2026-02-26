@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatPrice, formatDate } from "@/lib/utils"
-import { mockOrders, mockProducts } from "@/lib/mock-data"
+import { mockOrders, products } from "@/lib/mock-data"
 import {
   ResponsiveContainer,
   AreaChart,
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
   const [chartPeriod, setChartPeriod] = useState("7d")
   
   const recentOrders = mockOrders.slice(0, 5)
-  const lowStockProducts = mockProducts.filter((p) => p.stock < 20).slice(0, 5)
+  const lowStockProducts = products.filter((p) => p.stock < 20).slice(0, 5)
 
   return (
     <div className="space-y-6">
