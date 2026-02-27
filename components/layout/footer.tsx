@@ -7,6 +7,7 @@ import {
   Twitter,
   Instagram,
   Youtube,
+  NotebookText,
   Mail,
   Phone,
   MapPin,
@@ -223,6 +224,12 @@ export function Footer() {
                 >
                   support@TTDsoftware.com
                 </a>
+              </li>
+              <li className="flex items-center gap-2">
+                <NotebookText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  GST No 36AAJCT8496M1ZA
+                </span>
               </li>
             </ul>
           </div>
