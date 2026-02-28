@@ -203,26 +203,26 @@ export function Footer() {
               <li className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
-                  123 Commerce Street,<br />
-                  New Delhi, 110001, India
+                  2-91/12/4/NR, Plot no: 4, Doc Bhavan, 4 & amp;5th Floor,<br />
+                  Kondapur, Hyderabad, Telangana- 500081
                 </span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 <a
-                  href="tel:+911234567890"
+                  href="tel:+916302196694"
                   className="text-sm text-muted-foreground hover:text-foreground"
                 >
-                  +91 12345 67890
+                  +91 6302196694
                 </a>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <a
-                  href="mailto:support@TTDsoftware.com"
+                  href="mailto:softttd@gmail.com"
                   className="text-sm text-muted-foreground hover:text-foreground"
                 >
-                  support@TTDsoftware.com
+                  softttd@gmail.com
                 </a>
               </li>
               <li className="flex items-center gap-2">
