@@ -27,8 +27,6 @@ const footerLinks = {
     { name: 'Best Sellers', href: '/products?tag=bestseller' },
     { name: 'Deals & Offers', href: '/products?tag=deal' },
     { name: 'Electronics', href: '/products?category=electronics' },
-    { name: 'Fashion', href: '/products?category=fashion' },
-    { name: 'Home & Kitchen', href: '/products?category=home-kitchen' },
   ],
   customer: [
     { name: 'My Account', href: '/dashboard' },
