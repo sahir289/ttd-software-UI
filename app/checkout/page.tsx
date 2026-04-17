@@ -49,6 +49,7 @@ import { useCartStore, useAuthStore } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
 import { formatPrice, validatePincode, validatePhone, calculateGST, sleep, generateOrderNumber } from "@/lib/utils"
 import type { Address } from "@/lib/types"
+import QRCode from "react-qr-code"
 
 const CHECKOUT_STEPS = [
   { id: 1, name: "Address", icon: MapPin },
@@ -66,23 +67,19 @@ const INDIAN_STATES = [
 ]
 
 const PAYMENT_METHODS = [
-  { id: "upi", name: "UPI", description: "Pay using UPI apps", icon: Smartphone },
-  { id: "card", name: "Credit/Debit Card", description: "Visa, Mastercard, Rupay", icon: CreditCard },
-  { id: "netbanking", name: "Net Banking", description: "All major banks", icon: Building },
-  { id: "wallet", name: "Wallets", description: "Paytm, PhonePe, etc.", icon: Wallet },
-  { id: "cod", name: "Cash on Delivery", description: "Pay when delivered", icon: Banknote },
+  { id: "upi", name: "QR / UPI", description: "Scan QR code to pay", icon: Smartphone },
 ]
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { toast } = useToast()
-  
+
   // Use separate stores
   const cartItems = useCartStore((state) => state.items)
   const clearCart = useCartStore((state) => state.clearCart)
   const user = useAuthStore((state) => state.user)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
-  
+
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [addresses, setAddresses] = useState<Address[]>([
@@ -101,14 +98,17 @@ export default function CheckoutPage() {
     },
   ])
   const [selectedAddress, setSelectedAddress] = useState<string>("addr-1")
-  const [selectedPayment, setSelectedPayment] = useState<string>("")
-  const [upiId, setUpiId] = useState("")
+  const [selectedPayment, setSelectedPayment] = useState<string>("upi")
   const [showAddressDialog, setShowAddressDialog] = useState(false)
   const [editingAddress, setEditingAddress] = useState<Address | null>(null)
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null)
-  const [saveCard, setSaveCard] = useState(false)
-  
+
+  const [showQrDialog, setShowQrDialog] = useState(false)
+  const [qrIntentUrl, setQrIntentUrl] = useState("")
+  const [orderTrackingId, setOrderTrackingId] = useState("")
+  const [paymentStatus, setPaymentStatus] = useState("PENDING")
+
   const [newAddress, setNewAddress] = useState<Partial<Address>>({
     name: "",
     fullName: "",
@@ -120,17 +120,45 @@ export default function CheckoutPage() {
     pincode: "",
     isDefault: false,
   })
-  
+
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({})
 
-  // Redirect if not authenticated or cart is empty
+  // Redirect if cart is empty
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth/login?redirect=/checkout")
-    } else if (cartItems.length === 0) {
+    if (cartItems.length === 0 && !showQrDialog && !orderTrackingId) {
       router.push("/cart")
     }
-  }, [isAuthenticated, cartItems, router])
+  }, [cartItems, router, showQrDialog, orderTrackingId])
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    if (showQrDialog && orderTrackingId) {
+      intervalId = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/payment/status?order_id=${orderTrackingId}`, {
+            method: "POST"
+          });
+          const data = await res.json();
+          if (data && data.success && data.data && (data.data.order_status === "PAID" || data.data.order_status === "SUCCESS")) {
+            setPaymentStatus("PAID");
+            clearInterval(intervalId);
+            toast({
+              title: "Payment Successful!",
+              description: "Your order has been placed.",
+            });
+            clearCart();
+            setShowQrDialog(false);
+            router.push(`/order-success?order=${orderTrackingId}`);
+          }
+        } catch (e) {
+          console.error("Error polling payment status", e);
+        }
+      }, 3000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [showQrDialog, orderTrackingId, router, clearCart, toast]);
 
   // Calculate totals using cart item structure
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
@@ -142,7 +170,7 @@ export default function CheckoutPage() {
 
   const validateAddressForm = () => {
     const errors: Record<string, string> = {}
-    
+
     if (!newAddress.fullName?.trim()) errors.fullName = "Name is required"
     if (!newAddress.phone) errors.phone = "Phone is required"
     else if (!validatePhone(newAddress.phone)) errors.phone = "Invalid phone number"
@@ -151,14 +179,14 @@ export default function CheckoutPage() {
     if (!newAddress.state) errors.state = "State is required"
     if (!newAddress.pincode) errors.pincode = "PIN code is required"
     else if (!validatePincode(newAddress.pincode)) errors.pincode = "Invalid PIN code"
-    
+
     setAddressErrors(errors)
     return Object.keys(errors).length === 0
   }
 
   const handleSaveAddress = () => {
     if (!validateAddressForm()) return
-    
+
     if (editingAddress) {
       setAddresses(addresses.map((addr) =>
         addr.id === editingAddress.id
@@ -177,7 +205,7 @@ export default function CheckoutPage() {
       }
       setSelectedAddress(newAddr.id)
     }
-    
+
     setShowAddressDialog(false)
     setEditingAddress(null)
     setNewAddress({
@@ -191,7 +219,7 @@ export default function CheckoutPage() {
       pincode: "",
       isDefault: false,
     })
-    
+
     toast({
       title: editingAddress ? "Address updated" : "Address added",
       description: "Your address has been saved successfully.",
@@ -207,17 +235,17 @@ export default function CheckoutPage() {
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return
-    
+
     setIsLoading(true)
     await sleep(1000)
-    
+
     // Mock coupon validation
     const validCoupons: Record<string, number> = {
       "SAVE10": 0.1,
       "FIRST20": 0.2,
       "SHOPINDIA": 0.15,
     }
-    
+
     const upperCode = couponCode.toUpperCase()
     if (validCoupons[upperCode]) {
       setAppliedCoupon({ code: upperCode, discount: validCoupons[upperCode] })
@@ -232,7 +260,7 @@ export default function CheckoutPage() {
         variant: "destructive",
       })
     }
-    
+
     setIsLoading(false)
   }
 
@@ -246,39 +274,47 @@ export default function CheckoutPage() {
       setCurrentStep(1)
       return
     }
-    
-    if (!selectedPayment) {
-      toast({
-        title: "Payment method required",
-        description: "Please select a payment method.",
-        variant: "destructive",
-      })
-      setCurrentStep(2)
-      return
-    }
-    
-    if (selectedPayment === "upi" && !upiId) {
-      toast({
-        title: "UPI ID required",
-        description: "Please enter your UPI ID.",
-        variant: "destructive",
-      })
-      return
-    }
-    
+
     setIsLoading(true)
-    await sleep(2000)
-    
-    const orderNumber = generateOrderNumber()
-    clearCart()
-    setIsLoading(false)
-    
-    router.push(`/order-success?order=${orderNumber}`)
+
+    try {
+      const res = await fetch("/api/payment/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          merchantTransactionId: `TXN${Date.now()}`,
+          amount: total,
+          payment_for: `ORD${Date.now()}`,
+          customer_email: selectedAddressData?.email || "customer@example.com",
+          customer_phone: selectedAddressData?.phone || "9999999999"
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.data?.intent_url) {
+        setQrIntentUrl(data.data.intent_url);
+        setOrderTrackingId(data.data.order_id);
+        setShowQrDialog(true);
+      } else {
+        toast({
+          title: "Payment initialization failed",
+          description: data.message || "Could not generate QR code.",
+          variant: "destructive",
+        })
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Something went wrong initializing payment.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const selectedAddressData = addresses.find((a) => a.id === selectedAddress)
 
-  if (!isAuthenticated || cartItems.length === 0) {
+  if (cartItems.length === 0 && !showQrDialog) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -294,7 +330,7 @@ export default function CheckoutPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Cart
         </Link>
-        
+
         {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-center">
@@ -303,13 +339,12 @@ export default function CheckoutPage() {
                 <button
                   onClick={() => step.id < currentStep && setCurrentStep(step.id)}
                   disabled={step.id > currentStep}
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                    step.id === currentStep
+                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${step.id === currentStep
                       ? "bg-primary text-primary-foreground"
                       : step.id < currentStep
                         ? "bg-success text-success-foreground"
                         : "bg-muted text-muted-foreground"
-                  }`}
+                    }`}
                 >
                   {step.id < currentStep ? (
                     <Check className="h-4 w-4" />
@@ -350,11 +385,10 @@ export default function CheckoutPage() {
                     {addresses.map((address) => (
                       <div
                         key={address.id}
-                        className={`relative rounded-lg border p-4 transition-colors ${
-                          selectedAddress === address.id
+                        className={`relative rounded-lg border p-4 transition-colors ${selectedAddress === address.id
                             ? "border-primary bg-primary/5"
                             : "hover:border-primary/50"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-3">
                           <RadioGroupItem value={address.id} id={address.id} className="mt-1" />
@@ -405,7 +439,7 @@ export default function CheckoutPage() {
                       </div>
                     ))}
                   </RadioGroup>
-                  
+
                   <Button
                     variant="outline"
                     className="w-full bg-transparent"
@@ -413,8 +447,9 @@ export default function CheckoutPage() {
                       setEditingAddress(null)
                       setNewAddress({
                         name: "",
-                        fullName: user?.name || "",
-                        phone: user?.phone?.replace("+91 ", "") || "",
+                        fullName: "",
+                        email: "",
+                        phone: "",
                         addressLine1: "",
                         addressLine2: "",
                         city: "",
@@ -428,7 +463,7 @@ export default function CheckoutPage() {
                     <Plus className="mr-2 h-4 w-4" />
                     Add New Address
                   </Button>
-                  
+
                   <div className="flex justify-end pt-4">
                     <Button
                       onClick={() => setCurrentStep(2)}
@@ -463,11 +498,10 @@ export default function CheckoutPage() {
                     {PAYMENT_METHODS.map((method) => (
                       <div
                         key={method.id}
-                        className={`relative rounded-lg border p-4 transition-colors ${
-                          selectedPayment === method.id
+                        className={`relative rounded-lg border p-4 transition-colors ${selectedPayment === method.id
                             ? "border-primary bg-primary/5"
                             : "hover:border-primary/50"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           <RadioGroupItem value={method.id} id={method.id} />
@@ -478,68 +512,18 @@ export default function CheckoutPage() {
                             </Label>
                             <p className="text-sm text-muted-foreground">{method.description}</p>
                           </div>
-                          {method.id === "cod" && (
-                            <Badge variant="secondary">+ Rs. 29</Badge>
-                          )}
                         </div>
-                        
-                        {/* UPI ID Input */}
-                        {selectedPayment === "upi" && method.id === "upi" && (
-                          <div className="mt-4 pl-8">
-                            <Label htmlFor="upiId">Enter UPI ID</Label>
-                            <Input
-                              id="upiId"
-                              placeholder="yourname@upi"
-                              value={upiId}
-                              onChange={(e) => setUpiId(e.target.value)}
-                              className="mt-1"
-                            />
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Example: 9876543210@paytm, name@oksbi
-                            </p>
-                          </div>
-                        )}
-                        
-                        {/* Card Input */}
-                        {selectedPayment === "card" && method.id === "card" && (
-                          <div className="mt-4 space-y-4 pl-8">
-                            <div>
-                              <Label>Card Number</Label>
-                              <Input placeholder="1234 5678 9012 3456" className="mt-1" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label>Expiry Date</Label>
-                                <Input placeholder="MM/YY" className="mt-1" />
-                              </div>
-                              <div>
-                                <Label>CVV</Label>
-                                <Input placeholder="123" type="password" className="mt-1" />
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="saveCard"
-                                checked={saveCard}
-                                onCheckedChange={(checked) => setSaveCard(checked as boolean)}
-                              />
-                              <Label htmlFor="saveCard" className="text-sm">
-                                Save card for future payments
-                              </Label>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </RadioGroup>
-                  
+
                   <div className="flex items-center gap-2 rounded-lg bg-muted p-3">
                     <ShieldCheck className="h-5 w-5 text-success" />
                     <span className="text-sm">
                       Your payment information is secure and encrypted
                     </span>
                   </div>
-                  
+
                   <div className="flex justify-between pt-4">
                     <Button variant="outline" onClick={() => setCurrentStep(1)}>
                       <ArrowLeft className="mr-2 h-4 w-4" />
@@ -547,7 +531,7 @@ export default function CheckoutPage() {
                     </Button>
                     <Button
                       onClick={() => setCurrentStep(3)}
-                      disabled={!selectedPayment || (selectedPayment === "upi" && !upiId)}
+                      disabled={!selectedPayment}
                     >
                       Review Order
                       <ChevronRight className="ml-2 h-4 w-4" />
@@ -587,7 +571,7 @@ export default function CheckoutPage() {
                     )}
                   </CardContent>
                 </Card>
-                
+
                 {/* Payment Method Summary */}
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
@@ -603,12 +587,10 @@ export default function CheckoutPage() {
                     <p className="font-medium">
                       {PAYMENT_METHODS.find((m) => m.id === selectedPayment)?.name}
                     </p>
-                    {selectedPayment === "upi" && (
-                      <p className="text-sm text-muted-foreground">UPI ID: {upiId}</p>
-                    )}
+
                   </CardContent>
                 </Card>
-                
+
                 {/* Order Items */}
                 <Card>
                   <CardHeader>
@@ -637,7 +619,7 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                     ))}
-                    
+
                     <div className="flex items-center gap-2 rounded-lg bg-success/10 p-3 text-success">
                       <Clock className="h-4 w-4" />
                       <span className="text-sm font-medium">
@@ -646,7 +628,7 @@ export default function CheckoutPage() {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <div className="flex justify-between">
                   <Button variant="outline" onClick={() => setCurrentStep(2)}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -705,9 +687,9 @@ export default function CheckoutPage() {
                     Coupon {appliedCoupon.code} applied! You save {formatPrice(discount)}
                   </p>
                 )}
-                
+
                 <Separator />
-                
+
                 {/* Price Breakdown */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -733,9 +715,9 @@ export default function CheckoutPage() {
                     </div>
                   )}
                 </div>
-                
+
                 <Separator />
-                
+
                 {/* GST Breakdown */}
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Tax Details (Inclusive)</p>
@@ -748,15 +730,15 @@ export default function CheckoutPage() {
                     <span>{formatPrice(gst.sgst)}</span>
                   </div>
                 </div>
-                
+
                 <Separator />
-                
+
                 {/* Total */}
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
                   <span>{formatPrice(total + (selectedPayment === "cod" ? 29 : 0))}</span>
                 </div>
-                
+
                 <p className="text-xs text-muted-foreground">
                   * Prices are inclusive of all taxes
                 </p>
@@ -777,7 +759,7 @@ export default function CheckoutPage() {
               Enter your delivery address details
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -801,8 +783,18 @@ export default function CheckoutPage() {
                   <p className="text-xs text-destructive mt-1">{addressErrors.fullName}</p>
                 )}
               </div>
+              <div>
+                <Label htmlFor="addressEmail">Email Address (Optional)</Label>
+                <Input
+                  id="addressEmail"
+                  type="email"
+                  placeholder="yourname@example.com"
+                  value={newAddress.email || ''}
+                  onChange={(e) => setNewAddress({ ...newAddress, email: e.target.value })}
+                />
+              </div>
             </div>
-            
+
             <div>
               <Label htmlFor="addressPhone">Phone Number *</Label>
               <div className="flex">
@@ -821,7 +813,7 @@ export default function CheckoutPage() {
                 <p className="text-xs text-destructive mt-1">{addressErrors.phone}</p>
               )}
             </div>
-            
+
             <div>
               <Label htmlFor="addressLine1">Address Line 1 *</Label>
               <Input
@@ -834,7 +826,7 @@ export default function CheckoutPage() {
                 <p className="text-xs text-destructive mt-1">{addressErrors.addressLine1}</p>
               )}
             </div>
-            
+
             <div>
               <Label htmlFor="addressLine2">Address Line 2 (Optional)</Label>
               <Input
@@ -844,7 +836,7 @@ export default function CheckoutPage() {
                 onChange={(e) => setNewAddress({ ...newAddress, addressLine2: e.target.value })}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="city">City *</Label>
@@ -871,7 +863,7 @@ export default function CheckoutPage() {
                 )}
               </div>
             </div>
-            
+
             <div>
               <Label htmlFor="state">State *</Label>
               <Select
@@ -893,7 +885,7 @@ export default function CheckoutPage() {
                 <p className="text-xs text-destructive mt-1">{addressErrors.state}</p>
               )}
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="isDefault"
@@ -905,7 +897,7 @@ export default function CheckoutPage() {
               </Label>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddressDialog(false)}>
               Cancel
@@ -914,6 +906,24 @@ export default function CheckoutPage() {
               {editingAddress ? "Update Address" : "Save Address"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Code Dialog */}
+      <Dialog open={showQrDialog} onOpenChange={(open) => !open && setShowQrDialog(false)}>
+        <DialogContent className="sm:max-w-md text-center">
+          <DialogHeader>
+            <DialogTitle>Scan QR to Pay</DialogTitle>
+            <DialogDescription>
+              Open any UPI app to scan and pay {formatPrice(total)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-6 space-y-4">
+            <div className="p-4 bg-white rounded-xl">
+              {qrIntentUrl ? <QRCode value={qrIntentUrl} size={200} /> : <Loader2 className="animate-spin" />}
+            </div>
+            <p className="text-sm text-muted-foreground animate-pulse">Waiting for payment confirmation...</p>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

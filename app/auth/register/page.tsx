@@ -50,14 +50,14 @@ export default function RegisterPage() {
     const newErrors: Record<string, string> = {}
     
     if (!formData.firstName.trim()) {
-      newErrors.name = "Name is required"
+      newErrors.firstName = "First name is required"
     } else if (formData.firstName.trim().length < 2) {
-      newErrors.name = "Name must be at least 2 characters"
+      newErrors.firstName = "First name must be at least 2 characters"
     }
     if (!formData.lastName.trim()) {
-      newErrors.name = "Name is required"
+      newErrors.lastName = "Last name is required"
     } else if (formData.lastName.trim().length < 2) {
-      newErrors.name = "Name must be at least 2 characters"
+      newErrors.lastName = "Last name must be at least 2 characters"
     }   
     if (!formData.email) {
       newErrors.email = "Email is required"
@@ -188,7 +188,7 @@ export default function RegisterPage() {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="name">First Name</Label>
+              <Label htmlFor="firstName">First Name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -201,12 +201,12 @@ export default function RegisterPage() {
                   disabled={isLoading}
                 />
               </div>
-              {errors.name && (
-                <p className="text-sm text-destructive">{errors.name}</p>
+              {errors.firstName && (
+                <p className="text-sm text-destructive">{errors.firstName}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="name">Last Name</Label>
+              <Label htmlFor="lastName">Last Name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -219,8 +219,8 @@ export default function RegisterPage() {
                   disabled={isLoading}
                 />
               </div>
-              {errors.name && (
-                <p className="text-sm text-destructive">{errors.name}</p>
+              {errors.lastName && (
+                <p className="text-sm text-destructive">{errors.lastName}</p>
               )}
             </div>
             

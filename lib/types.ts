@@ -68,6 +68,7 @@ export interface Address {
   id: string
   name: string
   phone: string
+  email?: string
   fullName: string
   addressLine1: string
   addressLine2?: string
